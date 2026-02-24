@@ -16,6 +16,8 @@ const teacherColumnMap = {
   subject: ["subject", "course"],
   year: ["year", "academic_year"],
   stream: ["stream", "course_stream"],
+  semester: ["semester", "sem"],
+  division: ["division", "class_division"],
 };
 
 export function parseStudentImport(filePath) {
@@ -91,24 +93,28 @@ export async function upsertTeachers(teachers, actorId) {
 
     let insertedCount = 0;
 
-    const values = teachers.map(() => "(?, ?, ?, ?, ?)").join(",");
+    const values = teachers.map(() => "(?, ?, ?, ?, ?, ?, ?)").join(",");
     const params = teachers.flatMap((teacher) => [
       teacher.teacherId?.toString().trim() || "",
       teacher.name?.toString().trim() || "",
       teacher.subject?.toString().trim() || "",
       teacher.year?.toString().trim() || "",
       teacher.stream?.toString().trim() || "",
+      teacher.semester?.toString().trim() || "",
+      teacher.division?.toString().trim() || "",
     ]);
 
     const sql = `
       INSERT INTO teacher_details_db 
-        (teacher_id, name, subject, year, stream) 
+        (teacher_id, name, subject, year, stream, semester, division) 
       VALUES ${values}
       ON DUPLICATE KEY UPDATE 
         name = VALUES(name),
         subject = VALUES(subject),
         year = VALUES(year),
-        stream = VALUES(stream)
+        stream = VALUES(stream),
+        semester = VALUES(semester),
+        division = VALUES(division)
     `;
 
     const [result] = await connection.query(sql, params);

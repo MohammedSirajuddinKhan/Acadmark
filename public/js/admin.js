@@ -809,14 +809,14 @@ const refreshTeachersButton = document.querySelector("[data-refresh-teachers]");
 async function loadTeachersInfo() {
   if (!teachersInfoBody) return;
 
-  teachersInfoBody.innerHTML = '<tr><td colspan="7">Loading...</td></tr>';
+  teachersInfoBody.innerHTML = '<tr><td colspan="8">Loading...</td></tr>';
 
   try {
     const data = await apiFetch("/api/admin/teachers-info");
 
     if (!data.teachers || data.teachers.length === 0) {
       teachersInfoBody.innerHTML =
-        '<tr><td colspan="7">No teachers found</td></tr>';
+        '<tr><td colspan="8">No teachers found</td></tr>';
       return;
     }
 
@@ -829,6 +829,7 @@ async function loadTeachersInfo() {
         <td>${teacher.subject || "N/A"}</td>
         <td>${teacher.year || "N/A"}</td>
         <td>${teacher.stream || "N/A"}</td>
+        <td>${teacher.semester || "N/A"}</td>
         <td>${teacher.divisions || "N/A"}</td>
         <td>${teacher.student_count || 0}</td>
       </tr>
@@ -837,7 +838,7 @@ async function loadTeachersInfo() {
       .join("");
   } catch (error) {
     teachersInfoBody.innerHTML =
-      '<tr><td colspan="7">Error loading teachers information</td></tr>';
+      '<tr><td colspan="8">Error loading teachers information</td></tr>';
     showToast({
       title: "Unable to load teachers",
       message: error.message,
@@ -851,6 +852,7 @@ refreshTeachersButton?.addEventListener("click", loadTeachersInfo);
 // Students Information Section
 const filterYearSelect = document.querySelector("#filterYear");
 const filterStreamSelect = document.querySelector("#filterStream");
+const filterSemesterSelect = document.querySelector("#filterSemester");
 const filterDivisionSelect = document.querySelector("#filterDivision");
 const loadStudentsButton = document.querySelector("[data-load-students]");
 const studentsInfoBody = document.querySelector("[data-students-info-body]");
@@ -865,52 +867,90 @@ const subjectsTeachersContainer = document.querySelector(
 const subjectsList = document.querySelector("[data-subjects-list]");
 const teachersList = document.querySelector("[data-teachers-list]");
 
-// Populate stream filters based on year
-async function populateStreamFilters(year) {
+// Load streams from teacher_details_db
+async function loadStreamsFromTeachers() {
   if (!filterStreamSelect) return;
 
-  filterStreamSelect.innerHTML = '<option value="">Select stream...</option>';
-  filterStreamSelect.disabled = true;
-
-  if (!year) {
-    return;
-  }
-
   try {
-    const data = await apiFetch(`/api/admin/streams-divisions?year=${encodeURIComponent(year)}`);
+    // Load streams from student data instead of teacher data
+    const data = await apiFetch('/api/admin/student-streams');
 
     if (data.streams && data.streams.length > 0) {
+      filterStreamSelect.innerHTML = '<option value="">Select stream...</option>';
       data.streams.forEach((stream) => {
         const option = document.createElement("option");
         option.value = stream;
         option.textContent = stream;
         filterStreamSelect.appendChild(option);
       });
-      filterStreamSelect.disabled = false;
     } else {
       filterStreamSelect.innerHTML = '<option value="">No streams available</option>';
     }
   } catch (error) {
-    console.error("Failed to populate stream filters:", error);
+    console.error("Failed to load streams:", error);
     filterStreamSelect.innerHTML = '<option value="">Error loading streams</option>';
   }
 }
 
-// Populate division filters based on year and stream
-async function populateDivisionFilters(year, stream) {
+// Populate semester dropdown based on year
+function populateSemestersByYear(year) {
+  if (!filterSemesterSelect) return;
+
+  filterSemesterSelect.innerHTML = '<option value="">Select semester...</option>';
+
+  // Add All Semesters option
+  const allOption = document.createElement('option');
+  allOption.value = 'ALL';
+  allOption.textContent = 'All Semesters';
+  filterSemesterSelect.appendChild(allOption);
+
+  const semesterOptions = {
+    'FY': [
+      { value: 'Sem 1', label: 'Semester 1' },
+      { value: 'Sem 2', label: 'Semester 2' }
+    ],
+    'SY': [
+      { value: 'Sem 3', label: 'Semester 3' },
+      { value: 'Sem 4', label: 'Semester 4' }
+    ],
+    'TY': [
+      { value: 'Sem 5', label: 'Semester 5' },
+      { value: 'Sem 6', label: 'Semester 6' }
+    ]
+  };
+
+  const semesters = semesterOptions[year] || [];
+
+  semesters.forEach((sem) => {
+    const option = document.createElement('option');
+    option.value = sem.value;
+    option.textContent = sem.label;
+    filterSemesterSelect.appendChild(option);
+  });
+}
+
+// Populate division filters from teacher_details_db based on stream, year, and semester
+async function populateDivisionFiltersFromTeachers(stream, year, semester) {
   if (!filterDivisionSelect) return;
 
   filterDivisionSelect.innerHTML = '<option value="">Select division...</option>';
   filterDivisionSelect.disabled = true;
 
-  if (!year || !stream) {
+  if (!stream || !year || !semester) {
     return;
   }
 
   try {
-    const data = await apiFetch(
-      `/api/admin/streams-divisions?year=${encodeURIComponent(year)}&stream=${encodeURIComponent(stream)}`
-    );
+    // Get divisions from student data instead of teacher data
+    const url = `/api/admin/student-divisions?stream=${encodeURIComponent(stream)}&year=${encodeURIComponent(year)}`;
+
+    const data = await apiFetch(url);
+
+    // Add All Divisions option
+    const allOption = document.createElement("option");
+    allOption.value = "ALL";
+    allOption.textContent = "All Divisions";
+    filterDivisionSelect.appendChild(allOption);
 
     if (data.divisions && data.divisions.length > 0) {
       data.divisions.forEach((division) => {
@@ -931,41 +971,72 @@ async function populateDivisionFilters(year, stream) {
 
 // Setup cascading filter listeners
 function setupStudentFilters() {
+  // Load streams on page load
+  loadStreamsFromTeachers();
+
+  // When stream changes, enable year
+  if (filterStreamSelect) {
+    filterStreamSelect.addEventListener("change", () => {
+      const stream = filterStreamSelect.value;
+
+      // Reset year, semester, and division
+      if (filterYearSelect) {
+        filterYearSelect.value = "";
+        filterYearSelect.disabled = !stream;
+      }
+      if (filterSemesterSelect) {
+        filterSemesterSelect.value = "";
+        filterSemesterSelect.disabled = true;
+      }
+      if (filterDivisionSelect) {
+        filterDivisionSelect.innerHTML = '<option value="">Select division...</option>';
+        filterDivisionSelect.disabled = true;
+      }
+    });
+  }
+
+  // When year changes, populate relevant semesters
   if (filterYearSelect) {
-    filterYearSelect.addEventListener("change", async () => {
+    filterYearSelect.addEventListener("change", () => {
       const year = filterYearSelect.value;
 
-      // Reset stream and division
-      if (filterStreamSelect) {
-        filterStreamSelect.innerHTML = '<option value="">Select stream...</option>';
-        filterStreamSelect.disabled = !year;
+      // Reset semester and division
+      if (filterSemesterSelect) {
+        filterSemesterSelect.value = "";
+        filterSemesterSelect.disabled = true;
+        filterSemesterSelect.innerHTML = '<option value="">Select semester...</option>';
       }
       if (filterDivisionSelect) {
         filterDivisionSelect.innerHTML = '<option value="">Select division...</option>';
         filterDivisionSelect.disabled = true;
       }
 
-      // Load streams for selected year
+      // Populate semesters for selected year
       if (year) {
-        await populateStreamFilters(year);
+        populateSemestersByYear(year);
+        if (filterSemesterSelect) {
+          filterSemesterSelect.disabled = false;
+        }
       }
     });
   }
 
-  if (filterStreamSelect) {
-    filterStreamSelect.addEventListener("change", async () => {
+  // When semester changes, load divisions from teachers
+  if (filterSemesterSelect) {
+    filterSemesterSelect.addEventListener("change", async () => {
+      const stream = filterStreamSelect?.value;
       const year = filterYearSelect?.value;
-      const stream = filterStreamSelect.value;
+      const semester = filterSemesterSelect.value;
 
       // Reset division
       if (filterDivisionSelect) {
         filterDivisionSelect.innerHTML = '<option value="">Select division...</option>';
-        filterDivisionSelect.disabled = !stream;
+        filterDivisionSelect.disabled = true;
       }
 
-      // Load divisions for selected year and stream
-      if (year && stream) {
-        await populateDivisionFilters(year, stream);
+      // Load divisions for selected stream, year, and semester from teachers
+      if (stream && year && semester) {
+        await populateDivisionFiltersFromTeachers(stream, year, semester);
       }
     });
   }
@@ -974,12 +1045,13 @@ function setupStudentFilters() {
 async function loadStudentsInfo() {
   const year = filterYearSelect?.value;
   const stream = filterStreamSelect?.value;
+  const semester = filterSemesterSelect?.value;
   const division = filterDivisionSelect?.value;
 
-  if (!year || !stream || !division) {
+  if (!stream || !year || !semester || !division) {
     showToast({
       title: "Selection required",
-      message: "Please select year, stream, and division",
+      message: "Please select stream, year, semester, and division",
       type: "warning",
     });
     return;
@@ -991,7 +1063,7 @@ async function loadStudentsInfo() {
 
   try {
     const data = await apiFetch(
-      `/api/admin/students-info?year=${encodeURIComponent(year)}&stream=${encodeURIComponent(stream)}&division=${encodeURIComponent(division)}`,
+      `/api/admin/students-info?year=${encodeURIComponent(year)}&stream=${encodeURIComponent(stream)}&semester=${encodeURIComponent(semester)}&division=${encodeURIComponent(division)}`,
     );
 
     // Display subjects
@@ -1069,9 +1141,12 @@ async function loadStudentsInfo() {
       studentsInfoTable.style.display = "block";
     }
 
+    const semesterLabel = semester === 'ALL' ? 'All Semesters' : semester;
+    const divisionLabel = division === 'ALL' ? 'All Divisions' : division;
+
     showToast({
       title: "Students loaded",
-      message: `Found ${data.count} students in ${year} ${stream} - ${division}`,
+      message: `Found ${data.count} students in ${year} ${stream} - ${semesterLabel} - ${divisionLabel}`,
       type: "success",
     });
   } catch (error) {

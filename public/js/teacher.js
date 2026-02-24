@@ -45,6 +45,8 @@ let lastSessionDetails = null;
 let teacherData = null;
 let availableStreams = [];
 let availableDivisions = [];
+let availableYears = [];
+let availableSemesters = [];
 
 function handleError(error, fallback = "Something went wrong") {
   console.error(error);
@@ -61,6 +63,8 @@ async function loadDashboard() {
     teacherData = data.teacherInfo || {};
     availableStreams = data.streams || [];
     availableDivisions = data.divisions || [];
+    availableYears = data.years || [];
+    availableSemesters = data.semesters || [];
 
     const summary = data?.summary || {};
     summarySessionsEl.textContent = summary.sessions ?? 0;
@@ -69,6 +73,7 @@ async function loadDashboard() {
     renderRecentSessions(data?.recentSessions || []);
 
     // Populate dropdowns
+    populateYearDropdown();
     populateStreamDropdown();
     populateDivisionDropdown();
     setupClassSelectionListeners();
@@ -77,11 +82,14 @@ async function loadDashboard() {
   }
 }
 
-async function loadSubjectsForClass(year, stream, division) {
+async function loadSubjectsForClass(year, stream, division, semester) {
   try {
-    const response = await apiFetch(
-      `/api/teacher/subjects?year=${encodeURIComponent(year)}&stream=${encodeURIComponent(stream)}&division=${encodeURIComponent(division)}`
-    );
+    let url = `/api/teacher/subjects?year=${encodeURIComponent(year)}&stream=${encodeURIComponent(stream)}&division=${encodeURIComponent(division)}`;
+    if (semester) {
+      url += `&semester=${encodeURIComponent(semester)}`;
+    }
+
+    const response = await apiFetch(url);
 
     const subjectDropdown = document.querySelector("#sessionSubject");
     const subjectGroup = document.querySelector("#subjectGroup");
@@ -147,6 +155,7 @@ function setupClassSelectionListeners() {
 
   function checkAndLoadSubjects() {
     const year = yearDropdown.value;
+    const semester = semesterDropdown.value;
     const stream = streamDropdown.value;
     const division = divisionDropdown.value;
 
@@ -154,14 +163,15 @@ function setupClassSelectionListeners() {
     if (subjectGroup) subjectGroup.style.display = "none";
     if (beginButton) beginButton.disabled = true;
 
-    // If all three are selected, load subjects
+    // If all required fields are selected, load subjects
     if (year && stream && division) {
-      loadSubjectsForClass(year, stream, division);
+      loadSubjectsForClass(year, stream, division, semester);
     }
   }
 
-  // Add listeners to all three dropdowns
+  // Add listeners to all dropdowns
   yearDropdown.addEventListener("change", checkAndLoadSubjects);
+  semesterDropdown.addEventListener("change", checkAndLoadSubjects);
   streamDropdown.addEventListener("change", checkAndLoadSubjects);
   divisionDropdown.addEventListener("change", checkAndLoadSubjects);
 
@@ -171,6 +181,31 @@ function setupClassSelectionListeners() {
       beginButton.disabled = !subjectDropdown.value;
     });
   }
+}
+
+function populateYearDropdown() {
+  const yearDropdown = document.querySelector("#sessionYear");
+  if (!yearDropdown) return;
+
+  // Clear existing options except the first one
+  while (yearDropdown.options.length > 1) {
+    yearDropdown.remove(1);
+  }
+
+  // Define year display names
+  const yearNames = {
+    FY: "FY (First Year)",
+    SY: "SY (Second Year)",
+    TY: "TY (Third Year)"
+  };
+
+  // Add only available years
+  availableYears.forEach((year) => {
+    const option = document.createElement("option");
+    option.value = year;
+    option.textContent = yearNames[year] || year;
+    yearDropdown.appendChild(option);
+  });
 }
 
 function populateSemesterDropdown(year) {
@@ -188,13 +223,26 @@ function populateSemesterDropdown(year) {
   };
 
   if (year && semesterMap[year]) {
-    semesterMap[year].forEach((sem) => {
-      const option = document.createElement("option");
-      option.value = sem;
-      option.textContent = `Semester ${sem}`;
-      semesterDropdown.appendChild(option);
+    // Filter to only show semesters that the teacher is assigned to
+    const possibleSemesters = semesterMap[year];
+    const availableSemestersForYear = possibleSemesters.filter(sem => {
+      // Check if availableSemesters includes this semester in "Sem X" format or just "X"
+      return availableSemesters.includes(`Sem ${sem}`) ||
+        availableSemesters.includes(String(sem));
     });
-    semesterDropdown.disabled = false;
+
+    if (availableSemestersForYear.length > 0) {
+      availableSemestersForYear.forEach((sem) => {
+        const option = document.createElement("option");
+        option.value = sem;
+        option.textContent = `Semester ${sem}`;
+        semesterDropdown.appendChild(option);
+      });
+      semesterDropdown.disabled = false;
+    } else {
+      semesterDropdown.innerHTML = '<option value="">No semesters assigned...</option>';
+      semesterDropdown.disabled = true;
+    }
   } else {
     semesterDropdown.innerHTML = '<option value="">Select year first...</option>';
     semesterDropdown.disabled = true;
@@ -806,7 +854,8 @@ function initDialogs() {
           loadSubjectsForClass(
             lastSessionDetails.year,
             lastSessionDetails.stream,
-            lastSessionDetails.division
+            lastSessionDetails.division,
+            lastSessionDetails.semester
           ).then(() => {
             // After loading subjects, set the previously selected subject if available
             if (lastSessionDetails.subject) {

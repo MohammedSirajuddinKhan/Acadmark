@@ -32,15 +32,27 @@ export async function teacherDashboard(req, res, next) {
     const teacherInfo = teacher?.[0] || {};
     const stats = await getTeacherStats(teacherId);
 
-    // Get unique streams from database
-    const [streams] = await pool.query(
-      `SELECT DISTINCT stream FROM student_details_db WHERE stream IS NOT NULL`
+    // Get streams, years, semesters, and divisions assigned to this teacher only
+    const [teacherAssignments] = await pool.query(
+      `SELECT DISTINCT stream, year, semester, division 
+       FROM teacher_details_db 
+       WHERE teacher_id = ?
+       ORDER BY stream, year, semester`,
+      [teacherId]
     );
 
-    // Get unique divisions from database
-    const [divisions] = await pool.query(
-      `SELECT DISTINCT division FROM student_details_db WHERE division IS NOT NULL`
-    );
+    // Extract unique values for each field
+    const uniqueStreams = [...new Set(teacherAssignments.map(a => a.stream))];
+    const uniqueYears = [...new Set(teacherAssignments.map(a => a.year))];
+    const uniqueSemesters = [...new Set(teacherAssignments.map(a => a.semester))];
+
+    // Split comma-separated divisions and get unique values
+    const uniqueDivisions = [...new Set(
+      teacherAssignments
+        .map(a => a.division)
+        .flatMap(div => div.split(',').map(d => d.trim().toUpperCase()))
+        .filter(d => d.length > 0)
+    )].sort();
 
     return res.json({
       ...stats,
@@ -50,8 +62,10 @@ export async function teacherDashboard(req, res, next) {
         subject: teacherInfo.subject,
         stream: teacherInfo.stream,
       },
-      streams: Array.isArray(streams) ? streams.map(s => s.stream) : [],
-      divisions: Array.isArray(divisions) ? divisions.map(d => d.division) : [],
+      streams: uniqueStreams,
+      years: uniqueYears,
+      semesters: uniqueSemesters,
+      divisions: uniqueDivisions,
     });
   } catch (error) {
     return next(error);
@@ -74,9 +88,17 @@ export async function getStreamsAndDivisions(req, res, next) {
        ORDER BY division`
     );
 
+    // Split comma-separated divisions and get unique values
+    const uniqueDivisions = [...new Set(
+      divisionsList
+        .map(d => d.division)
+        .flatMap(div => div.split(',').map(d => d.trim().toUpperCase()))
+        .filter(d => d.length > 0)
+    )].sort();
+
     return res.json({
       streams: streamsList.map(s => s.stream),
-      divisions: divisionsList.map(d => d.division),
+      divisions: uniqueDivisions,
     });
   } catch (error) {
     return next(error);
@@ -85,7 +107,8 @@ export async function getStreamsAndDivisions(req, res, next) {
 
 export async function getSubjectsForClass(req, res, next) {
   try {
-    const { year, stream, division } = req.query;
+    const teacherId = req.session.user.id;
+    const { year, stream, division, semester } = req.query;
 
     if (!year || !stream || !division) {
       return res.status(400).json({
@@ -93,15 +116,26 @@ export async function getSubjectsForClass(req, res, next) {
       });
     }
 
-    // Get subjects taught for this specific year/stream/division
+    // Convert semester to database format (e.g., "1" -> "Sem 1")
+    const semesterFilter = semester ? `Sem ${semester}` : null;
+
+    // Get subjects taught by this teacher for the specific year/stream/division/semester
+    // Split comma-separated divisions to match individual divisions
     const [subjects] = await pool.query(
-      `SELECT DISTINCT t.subject
-       FROM teacher_details_db t
-       INNER JOIN teacher_student_map tsm ON t.teacher_id = tsm.teacher_id
-       INNER JOIN student_details_db s ON tsm.student_id = s.student_id
-       WHERE s.year = ? AND s.stream = ? AND s.division = ?
-       ORDER BY t.subject`,
-      [year, stream, division]
+      `SELECT DISTINCT subject
+       FROM teacher_details_db
+       WHERE teacher_id = ?
+       AND year = ?
+       AND stream = ?
+       AND (
+         division = ? 
+         OR FIND_IN_SET(?, REPLACE(division, ' ', ''))
+       )
+       ${semester ? 'AND semester = ?' : ''}
+       ORDER BY subject`,
+      semester
+        ? [teacherId, year, stream, division, division, semesterFilter]
+        : [teacherId, year, stream, division, division]
     );
 
     return res.json({

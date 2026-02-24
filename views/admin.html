@@ -211,13 +211,14 @@
                 <th>Subject</th>
                 <th>Year</th>
                 <th>Stream</th>
+                <th>Semester</th>
                 <th>Divisions</th>
                 <th>Student Count</th>
               </tr>
             </thead>
             <tbody data-teachers-info-body>
               <tr>
-                <td colspan="7">Loading...</td>
+                <td colspan="8">Loading...</td>
               </tr>
             </tbody>
           </table>
@@ -246,8 +247,14 @@
                 align-items: flex-end;
               ">
             <div class="input-group" style="margin: 0; min-width: 150px">
+              <label for="filterStream" style="font-size: 0.875rem">Stream</label>
+              <select id="filterStream" name="stream" style="padding: 0.5rem">
+                <option value="">Select stream...</option>
+              </select>
+            </div>
+            <div class="input-group" style="margin: 0; min-width: 150px">
               <label for="filterYear" style="font-size: 0.875rem">Year</label>
-              <select id="filterYear" name="year" style="padding: 0.5rem">
+              <select id="filterYear" name="year" style="padding: 0.5rem" disabled>
                 <option value="">Select year...</option>
                 <option value="FY">FY (First Year)</option>
                 <option value="SY">SY (Second Year)</option>
@@ -255,9 +262,9 @@
               </select>
             </div>
             <div class="input-group" style="margin: 0; min-width: 150px">
-              <label for="filterStream" style="font-size: 0.875rem">Stream</label>
-              <select id="filterStream" name="stream" style="padding: 0.5rem" disabled>
-                <option value="">Select stream...</option>
+              <label for="filterSemester" style="font-size: 0.875rem">Semester</label>
+              <select id="filterSemester" name="semester" style="padding: 0.5rem" disabled>
+                <option value="">Select semester...</option>
               </select>
             </div>
             <div class="input-group" style="margin: 0; min-width: 150px">

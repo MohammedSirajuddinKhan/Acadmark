@@ -218,6 +218,14 @@ export async function fetchDashboardStats(req, res, next) {
        ORDER BY division`,
     );
 
+    // Split comma-separated divisions and get unique values
+    const uniqueDivisions = [...new Set(
+      divisionsList
+        .map(d => d.division)
+        .flatMap(div => div.split(',').map(d => d.trim().toUpperCase()))
+        .filter(d => d.length > 0)
+    )].sort();
+
     // Get stream-division combinations with student counts
     const [streamDivisionCounts] = await pool.query(
       `SELECT stream, division, COUNT(*) as students
@@ -231,7 +239,7 @@ export async function fetchDashboardStats(req, res, next) {
       students: studentCount?.[0]?.count || 0,
       teachers: teacherCount?.[0]?.count || 0,
       streams: streamsList.map((s) => s.stream),
-      divisions: divisionsList.map((d) => d.division),
+      divisions: uniqueDivisions,
       streamDivisionCounts: streamDivisionCounts || [],
     });
   } catch (error) {
@@ -686,27 +694,12 @@ export async function getTeachersInfo(req, res, next) {
         t.subject,
         t.year,
         t.stream,
-        COALESCE(
-          GROUP_CONCAT(
-            DISTINCT CASE 
-              WHEN s.year = t.year AND s.stream = t.stream 
-              THEN s.division 
-            END 
-            ORDER BY s.division 
-            SEPARATOR ', '
-          ), 
-          'N/A'
-        ) as divisions,
-        COUNT(
-          DISTINCT CASE 
-            WHEN s.year = t.year AND s.stream = t.stream 
-            THEN tsm.student_id 
-          END
-        ) as student_count
+        t.semester,
+        t.division as divisions,
+        COUNT(DISTINCT tsm.student_id) as student_count
       FROM teacher_details_db t
       LEFT JOIN teacher_student_map tsm ON t.teacher_id = tsm.teacher_id
-      LEFT JOIN student_details_db s ON tsm.student_id = s.student_id
-      GROUP BY t.teacher_id, t.year, t.stream, t.subject, t.name
+      GROUP BY t.teacher_id, t.year, t.stream, t.subject, t.name, t.semester, t.division
       ORDER BY t.name, t.year, t.stream
     `;
 
@@ -728,12 +721,23 @@ export async function getTeachersInfo(req, res, next) {
 // Student Information by Stream and Division
 export async function getStudentsInfo(req, res, next) {
   try {
-    const { year, stream, division } = req.query;
+    const { year, stream, semester, division } = req.query;
 
-    if (!year || !stream || !division) {
+    console.log('📋 getStudentsInfo called with:', { year, stream, semester, division });
+
+    if (!year || !stream || !semester || !division) {
       return res.status(400).json({
-        message: "Year, stream, and division are required",
+        message: "Year, stream, semester, and division are required",
       });
+    }
+
+    // Build dynamic WHERE clause for students
+    let studentsWhere = "WHERE year = ? AND stream = ?";
+    let studentsParams = [year, stream];
+
+    if (division !== 'ALL') {
+      studentsWhere += " AND division = ?";
+      studentsParams.push(division);
     }
 
     // Get students
@@ -746,47 +750,58 @@ export async function getStudentsInfo(req, res, next) {
         stream,
         division
       FROM student_details_db
-      WHERE year = ? AND stream = ? AND division = ?
+      ${studentsWhere}
       ORDER BY roll_no
     `;
-    const [students] = await pool.query(studentsQuery, [
-      year,
-      stream,
-      division,
-    ]);
 
-    // Get subjects taught in this stream and division
+    console.log('📝 Students Query:', studentsQuery);
+    console.log('📝 Query Params:', studentsParams);
+
+    const [students] = await pool.query(studentsQuery, studentsParams);
+
+    console.log(`✅ Found ${students.length} students`);
+    if (students.length > 0) {
+      console.log('   Sample:', students.slice(0, 3).map(s => `${s.student_id} - ${s.student_name}`));
+    }
+
+    // Build WHERE clause for subjects/teachers (teachers have semesters)
+    let teacherWhere = "WHERE year = ? AND stream = ?";
+    let teacherParams = [year, stream];
+
+    if (semester !== 'ALL') {
+      teacherWhere += " AND semester = ?";
+      teacherParams.push(semester);
+    }
+
+    if (division !== 'ALL') {
+      // Split comma-separated divisions for teachers
+      teacherWhere += " AND (";
+      const divisionConditions = [];
+      divisionConditions.push("FIND_IN_SET(?, division) > 0");
+      teacherParams.push(division);
+      teacherWhere += divisionConditions.join(" OR ") + ")";
+    }
+
+    // Get subjects taught in this year/stream/semester/division
     const subjectsQuery = `
-      SELECT DISTINCT t.subject
-      FROM teacher_details_db t
-      JOIN teacher_student_map tsm ON t.teacher_id = tsm.teacher_id
-      JOIN student_details_db s ON tsm.student_id = s.student_id
-      WHERE s.year = ? AND s.stream = ? AND s.division = ?
-      ORDER BY t.subject
+      SELECT DISTINCT subject
+      FROM teacher_details_db
+      ${teacherWhere}
+      ORDER BY subject
     `;
-    const [subjects] = await pool.query(subjectsQuery, [
-      year,
-      stream,
-      division,
-    ]);
+    const [subjects] = await pool.query(subjectsQuery, teacherParams);
 
-    // Get teachers teaching this stream and division
+    // Get teachers teaching this year/stream/semester/division
     const teachersQuery = `
       SELECT DISTINCT 
-        t.teacher_id,
-        t.name as teacher_name,
-        t.subject
-      FROM teacher_details_db t
-      JOIN teacher_student_map tsm ON t.teacher_id = tsm.teacher_id
-      JOIN student_details_db s ON tsm.student_id = s.student_id
-      WHERE s.year = ? AND s.stream = ? AND s.division = ?
-      ORDER BY t.name
+        teacher_id,
+        name as teacher_name,
+        subject
+      FROM teacher_details_db
+      ${teacherWhere}
+      ORDER BY name
     `;
-    const [teachers] = await pool.query(teachersQuery, [
-      year,
-      stream,
-      division,
-    ]);
+    const [teachers] = await pool.query(teachersQuery, teacherParams);
 
     return res.json({
       students: students || [],
@@ -794,6 +809,7 @@ export async function getStudentsInfo(req, res, next) {
       teachers: teachers || [],
       year,
       stream,
+      semester,
       division,
       count: students?.length || 0,
     });
@@ -841,12 +857,132 @@ export async function getStreamsDivisions(req, res, next) {
 
     const [divisionsList] = await pool.query(divisionsQuery, queryParams);
 
+    // Split comma-separated divisions and get unique values
+    const uniqueDivisions = [...new Set(
+      divisionsList
+        .map(d => d.division)
+        .flatMap(div => div.split(',').map(d => d.trim().toUpperCase()))
+        .filter(d => d.length > 0)
+    )].sort();
+
     return res.json({
       streams: streamsList.map((s) => s.stream),
-      divisions: divisionsList.map((d) => d.division),
+      divisions: uniqueDivisions,
     });
   } catch (error) {
     console.error("Get streams/divisions error:", error);
+    return next(error);
+  }
+}
+
+// Get divisions from teacher_details_db based on stream, year, and semester
+export async function getTeacherDivisions(req, res, next) {
+  try {
+    const { stream, year, semester } = req.query;
+
+    if (!stream) {
+      return res.status(400).json({
+        message: "Stream is required",
+      });
+    }
+
+    // If year and semester are provided, filter by them
+    let query = `SELECT DISTINCT division FROM teacher_details_db WHERE stream = ?`;
+    let params = [stream];
+
+    if (year) {
+      query += ` AND year = ?`;
+      params.push(year);
+    }
+
+    if (semester) {
+      query += ` AND semester = ?`;
+      params.push(semester);
+    }
+
+    query += ` AND division IS NOT NULL AND division != '' ORDER BY division`;
+
+    const [divisionsList] = await pool.query(query, params);
+
+    // Split comma-separated divisions and get unique values
+    const uniqueDivisions = [...new Set(
+      divisionsList
+        .map(d => d.division)
+        .flatMap(div => div.split(',').map(d => d.trim().toUpperCase()))
+        .filter(d => d.length > 0)
+    )].sort();
+
+    return res.json({
+      divisions: uniqueDivisions,
+    });
+  } catch (error) {
+    console.error("Get teacher divisions error:", error);
+    return next(error);
+  }
+}
+
+// Get divisions from student_details_db based on stream and year
+export async function getStudentDivisions(req, res, next) {
+  try {
+    const { stream, year } = req.query;
+
+    if (!stream || !year) {
+      return res.status(400).json({
+        message: "Stream and year are required",
+      });
+    }
+
+    const [divisionsList] = await pool.query(
+      `SELECT DISTINCT division FROM student_details_db 
+       WHERE stream = ? AND year = ?
+       AND division IS NOT NULL AND division != ''
+       ORDER BY division`,
+      [stream, year]
+    );
+
+    const divisions = divisionsList.map(d => d.division);
+
+    return res.json({
+      divisions,
+    });
+  } catch (error) {
+    console.error("Get student divisions error:", error);
+    return next(error);
+  }
+}
+
+// Get streams from teacher_details_db
+export async function getTeacherStreams(req, res, next) {
+  try {
+    const [streamsList] = await pool.query(
+      `SELECT DISTINCT stream FROM teacher_details_db 
+       WHERE stream IS NOT NULL AND stream != ''
+       ORDER BY stream`
+    );
+
+    return res.json({
+      streams: streamsList.map(s => s.stream),
+    });
+  } catch (error) {
+    console.error("Get teacher streams error:", error);
+    return next(error);
+  }
+}
+
+// Get streams from student_details_db
+export async function getStudentStreams(req, res, next) {
+  try {
+    const [streamsList] = await pool.query(
+      `SELECT DISTINCT stream FROM student_details_db 
+       WHERE stream IS NOT NULL AND stream != ''
+       ORDER BY stream`
+    );
+
+    return res.json({
+      streams: streamsList.map(s => s.stream),
+    });
+  } catch (error) {
+    console.error("Get student streams error:", error);
     return next(error);
   }
 }

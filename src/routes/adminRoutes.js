@@ -22,6 +22,10 @@ import {
   getTeachersInfo,
   getStudentsInfo,
   getStreamsDivisions,
+  getTeacherDivisions,
+  getStudentDivisions,
+  getTeacherStreams,
+  getStudentStreams,
 } from "../controllers/adminController.js";
 import { requireAuth, requireRole } from "../middlewares/authMiddleware.js";
 
@@ -66,6 +70,10 @@ router.get("/defaulters/download", downloadDefaulterList);
 router.get("/teachers-info", getTeachersInfo);
 router.get("/students-info", getStudentsInfo);
 router.get("/streams-divisions", getStreamsDivisions);
+router.get("/teacher-divisions", getTeacherDivisions);
+router.get("/student-divisions", getStudentDivisions);
+router.get("/teacher-streams", getTeacherStreams);
+router.get("/student-streams", getStudentStreams);
 
 // Real-time updates via Server-Sent Events
 router.get("/live-updates", (req, res) => {
