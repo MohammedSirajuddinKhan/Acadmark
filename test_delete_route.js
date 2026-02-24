@@ -45,7 +45,10 @@ const routes = getRoutes(app);
 
 // Filter for attendance backup and delete routes
 const backupRoutes = routes.filter(
-  (r) => r.path.includes("backup") || r.path.includes("delete-history") || r.path.includes("bulk-delete"),
+  (r) =>
+    r.path.includes("backup") ||
+    r.path.includes("delete-history") ||
+    r.path.includes("bulk-delete"),
 );
 console.log("Attendance Backup & Delete Routes:");
 backupRoutes.forEach((route) => {
