@@ -207,6 +207,10 @@ export async function getAllSessions(req, res, next) {
          GROUP BY teacher_id
        ) t ON ar.teacher_id = t.teacher_id
        WHERE ar.student_id = ?
+         AND ar.year IS NOT NULL
+         AND ar.stream IS NOT NULL
+         AND ar.division IS NOT NULL
+         AND ar.subject IS NOT NULL
        ORDER BY ar.session_date DESC, ar.created_at DESC`,
       [studentId],
     );
@@ -230,7 +234,12 @@ export async function getPresentSessions(req, res, next) {
          ar.stream,
          ar.division
        FROM attendance_records ar
-       WHERE ar.student_id = ? AND ar.status = 'P'
+       WHERE ar.student_id = ? 
+         AND ar.status = 'P'
+         AND ar.year IS NOT NULL
+         AND ar.stream IS NOT NULL
+         AND ar.division IS NOT NULL
+         AND ar.subject IS NOT NULL
        ORDER BY ar.session_date DESC`,
       [studentId],
     );
@@ -254,7 +263,12 @@ export async function getAbsentSessions(req, res, next) {
          ar.stream,
          ar.division
        FROM attendance_records ar
-       WHERE ar.student_id = ? AND ar.status = 'A'
+       WHERE ar.student_id = ? 
+         AND ar.status = 'A'
+         AND ar.year IS NOT NULL
+         AND ar.stream IS NOT NULL
+         AND ar.division IS NOT NULL
+         AND ar.subject IS NOT NULL
        ORDER BY ar.session_date DESC`,
       [studentId],
     );

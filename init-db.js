@@ -63,7 +63,7 @@ async function initializeDatabase() {
           }
         }
       }
-        console.log("✅ All tables verified and created if missing");
+      console.log("✅ All tables verified and created if missing");
     }
 
     // Always run schema migrations to keep structure up-to-date
@@ -128,7 +128,7 @@ async function runSchemaMigrations() {
   } catch (err) {
     console.error("⚠️  Schema migration error (non-fatal):", err.message);
     // Ensure FK checks are re-enabled even on outer error
-    try { await connection.query(`SET FOREIGN_KEY_CHECKS = 1`); } catch (_) {}
+    try { await connection.query(`SET FOREIGN_KEY_CHECKS = 1`); } catch (_) { }
   } finally {
     connection.release();
   }
@@ -153,7 +153,7 @@ async function createDefaulterHistoryTable() {
         PRIMARY KEY (id),
         KEY idx_dhl_teacher (teacher_id),
         KEY idx_dhl_created (created_at)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
     `);
     console.log("✅ Defaulter_History_Lists table ready");
   } catch (err) {

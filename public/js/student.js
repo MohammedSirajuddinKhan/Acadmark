@@ -209,8 +209,9 @@ async function loadAttendanceCalendar() {
     attendanceCalendarData = data.calendar || {};
     renderCalendar();
   } catch (error) {
-    calendarContainer.innerHTML = `<div style="text-align: center; padding: 2rem; color: var(--color-danger)">Failed to load calendar</div>`;
-    handleError(error, "Unable to load attendance calendar");
+    console.error("Calendar load error:", error);
+    calendarContainer.innerHTML = `<div style="text-align: center; padding: 2rem; color: var(--color-text-muted)">Unable to load calendar. Please try refreshing the page.</div>`;
+    // Don't show error toast for calendar - it's not critical
   }
 }
 
@@ -382,14 +383,19 @@ async function showTotalSessionsModal() {
     const data = await apiFetch("/api/student/sessions/all");
     const sessions = data.sessions || [];
 
-    if (!sessions.length) {
+    // Filter out incomplete sessions (missing required fields)
+    const validSessions = sessions.filter(
+      (session) => session.year && session.stream && session.division && session.subject
+    );
+
+    if (!validSessions.length) {
       totalSessionsList.innerHTML = `<tr><td colspan="3" style="text-align: center; padding: 2rem">No sessions recorded yet.</td></tr>`;
       return;
     }
 
-    const rows = sessions
+    const rows = validSessions
       .map((session) => {
-        const sessionLabel = `${session.year || "–"}-${session.stream || "–"}-${session.division || "–"}`;
+        const sessionLabel = `${session.year}-${session.stream}-${session.division}`;
         const date = new Date(session.session_date || session.created_at);
         const formattedDate = date.toLocaleString("en-IN", {
           timeZone: "Asia/Kolkata",
@@ -400,7 +406,7 @@ async function showTotalSessionsModal() {
           minute: "2-digit",
         });
         const teacherName = session.teacher_name || "Unknown";
-        const subject = session.subject || "–";
+        const subject = session.subject;
         const details = `started by ${teacherName} for ${subject} on ${formattedDate}`;
 
         const statusClass = session.status === "P" ? "success" : "danger";
@@ -433,14 +439,19 @@ async function showPresentSessionsModal() {
     const data = await apiFetch("/api/student/sessions/present");
     const sessions = data.sessions || [];
 
-    if (!sessions.length) {
+    // Filter out incomplete sessions
+    const validSessions = sessions.filter(
+      (session) => session.year && session.stream && session.division && session.subject
+    );
+
+    if (!validSessions.length) {
       presentSessionsList.innerHTML = `<tr><td colspan="2" style="text-align: center; padding: 2rem">No sessions attended yet.</td></tr>`;
       return;
     }
 
-    const rows = sessions
+    const rows = validSessions
       .map((session) => {
-        const sessionLabel = `${session.year || "–"}-${session.stream || "–"}-${session.division || "–"}`;
+        const sessionLabel = `${session.year}-${session.stream}-${session.division}`;
         const date = new Date(session.session_date);
         const formattedDate = date.toLocaleDateString("en-IN", {
           timeZone: "Asia/Kolkata",
@@ -448,7 +459,7 @@ async function showPresentSessionsModal() {
           month: "short",
           day: "numeric",
         });
-        const subject = session.subject || "–";
+        const subject = session.subject;
         const details = `on ${formattedDate} for ${subject}`;
 
         return `
@@ -477,14 +488,19 @@ async function showAbsentSessionsModal() {
     const data = await apiFetch("/api/student/sessions/absent");
     const sessions = data.sessions || [];
 
-    if (!sessions.length) {
+    // Filter out incomplete sessions
+    const validSessions = sessions.filter(
+      (session) => session.year && session.stream && session.division && session.subject
+    );
+
+    if (!validSessions.length) {
       absentSessionsList.innerHTML = `<tr><td colspan="2" style="text-align: center; padding: 2rem">No absent sessions. Great job!</td></tr>`;
       return;
     }
 
-    const rows = sessions
+    const rows = validSessions
       .map((session) => {
-        const sessionLabel = `${session.year || "–"}-${session.stream || "–"}-${session.division || "–"}`;
+        const sessionLabel = `${session.year}-${session.stream}-${session.division}`;
         const date = new Date(session.session_date);
         const formattedDate = date.toLocaleDateString("en-IN", {
           timeZone: "Asia/Kolkata",
@@ -492,7 +508,7 @@ async function showAbsentSessionsModal() {
           month: "short",
           day: "numeric",
         });
-        const subject = session.subject || "–";
+        const subject = session.subject;
         const details = `on ${formattedDate} for ${subject}`;
 
         return `

@@ -6,13 +6,13 @@ TCH004,Prof. Karan Verma,Computer Networks,FY,BSCIT
 TCH005,Dr. Priya Rao,Software Engineering,BSCIT
 TCH006,Prof. Arvind Deshmukh,Python Programming,BSCIT
 TCH007,Prof. Neha Mehta,Data Structures,BSCIT
-TCH008,Prof. Amit Trivedi,AI Fundamentals,BSCDS
-TCH009,Prof. Kavita Joshi,Machine Learning,BSCDS
-TCH010,Dr. Suresh Nair,Statistics for Data Science,BSCDS
-TCH011,Prof. Rutuja Gokhale,Big Data Analytics,BSCDS
-TCH012,Prof. Jignesh Shah,Deep Learning,BSCDS
-TCH013,Prof. Reema Yadav,Cloud Computing,BSCDS
-TCH014,Prof. Tanmay Patil,Computer Vision,BSCDS
+TCH008,Prof. Amit Trivedi,AI Fundamentals,SY,BSCIT
+TCH009,Prof. Kavita Joshi,Machine Learning,TY,BSCIT
+TCH010,Dr. Suresh Nair,Statistics for Data Science,FY,BSCIT
+TCH011,Prof. Rutuja Gokhale,Big Data Analytics,SY,BSCIT
+TCH012,Prof. Jignesh Shah,Advanced Programming,TY,BSCIT
+TCH013,Prof. Reema Yadav,Cloud Computing Basics,SY,BSCIT
+TCH014,Prof. Tanmay Patil,Computer Vision,TY,BSCIT
 TCH015,Prof. Shweta Menon,Database Systems,BSCCA
 TCH016,Prof. Akash Rane,Software Testing,BSCCA
 TCH017,Prof. Nidhi Bhat,Networking Concepts,BSCCA
@@ -29,10 +29,10 @@ TCH027,Dr. Manisha Sinha,Computer Graphics,BSCIT
 TCH028,Prof. Kartik Shah,C Programming,BSCIT
 TCH029,Prof. Payal Jadhav,Java Programming,BSCIT
 TCH030,Prof. Mohit Khatri,Web Tech 2,BSCIT
-TCH031,Prof. Deepa Tiwari,DBMS II,BSCDS
-TCH032,Prof. Rachit Pandya,Python II,BSCDS
-TCH033,Prof. Lata Jain,AI Labs,BSCDS
-TCH034,Prof. Sidharth Rao,ML Labs,BSCDS
+TCH031,Prof. Deepa Tiwari,DBMS II,SY,BSCIT
+TCH032,Prof. Rachit Pandya,Python II,FY,BSCIT
+TCH033,Prof. Lata Jain,Software Testing,SY,BSCIT
+TCH034,Prof. Sidharth Rao,Practical Labs,TY,BSCIT
 TCH035,Prof. Vaibhav Shinde,IT Infrastructure,BSCCA
 TCH036,Prof. Harini Iyer,E-Commerce,BSCCA
 TCH037,Prof. Divyesh Gohil,System Analysis,BSCCA
@@ -42,10 +42,10 @@ TCH040,Prof. Varun Deshpande,AI Project Work,BSCAIML
 TCH041,Dr. Snehal Thakur,AI Algorithms,BSCAIML
 TCH042,Prof. Rahul Pawar,ML Case Studies,BSCAIML
 TCH043,Prof. Megha Joshi,AI Tools,BSCAIML
-TCH044,Prof. Aisha Sheikh,Statistics II,BSCDS
+TCH044,Prof. Aisha Sheikh,Statistics II,SY,BSCIT
 TCH045,Prof. Dinesh Nambiar,Advanced Web Tech,BSCIT
 TCH046,Prof. Shruti Chavan,Computer Architecture,BSCIT
 TCH047,Prof. Kunal Reddy,IoT Systems,BSCIT
 TCH048,Prof. Pritam Desai,AI + Data Science,BSCAIML
 TCH049,Prof. Sanjay Patkar,Enterprise Computing,BSCCA
-TCH050,Dr. Anushka Bhave,Research Methodology,BSCDS
+TCH050,Dr. Anushka Bhave,Research Methodology,TY,BSCIT
